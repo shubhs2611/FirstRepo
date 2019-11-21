@@ -1,0 +1,148 @@
+Resources:
+	MyVPC:
+		Type: AWS::EC2::VPC
+		Properties: 
+			CidrBlock: 10.0.0.0/16
+			EnableDnsHostnames: false
+			EnableDnsSupport: false
+			InstanceTenancy: default
+			Tags: 
+				- Key: Name
+				  Value: MyVPC
+	
+	PublicSubnet01:
+		Type: AWS::EC2::Subnet
+		Properties:
+			VpcId:!Ref MyVPC
+			CidrBlock: 10.0.3.0/24
+			AvailabilityZone: "us-east-1a"
+			Tags:
+				- Key: Name
+				  Value: PublicSubnet01
+				
+	PublicSubnet02:
+		Type: AWS::EC2::Subnet
+		Properties:
+			VpcId:!Ref MyVPC
+			CidrBlock: 10.0.4.0/24
+			AvailabilityZone: "us-east-1b"
+			Tags:
+				- Key: Name
+				  Value: PublicSubnet02
+				
+	PrivateSubnet01:
+		Type: AWS::EC2::Subnet
+		Properties:
+			VpcId:!Ref MyVPC
+			CidrBlock: 10.0.1.0/24
+			AvailabilityZone: "us-east-1a"
+			Tags:
+				- Key: Name
+				  Value: PrivateSubnet01
+				
+	PrivateSubnet02:
+		Type: AWS::EC2::Subnet
+		Properties:
+			VpcId:!Ref MyVPC
+			CidrBlock: 10.0.2.0/24
+			AvailabilityZone: "us-east-1b"
+			Tags:
+				- Key: Name
+				  Value: PrivateSubnet02
+	
+	MyIGW:
+		Type: AWS::EC2::InternetGateway
+			Properties:
+			Tags:
+			- Key: Name
+			  Value: MyIGW
+	
+	AttachGateway:
+		Type: AWS::EC2::VPCGatewayAttachment
+		Properties:
+			VpcId: !Ref MyVPC
+			InternetGatewayId: !MyIGW
+		
+	MyPublicRoute:
+		Type: AWS::EC2::RouteTable
+		Properties:
+			VpcId:!Ref myVPC
+			Tags:
+				- Key: Name
+				  Value: MyPublicRoute
+				  
+	myRoute:
+		Type: AWS::EC2::Route
+		Properties:
+			RouteTableId:!Ref MyPublicRoute
+			DependsOn: AttachGateway
+			DestinationCidrBlock: 0.0.0.0/0
+			GatewayId:!Ref MyIGW
+	
+	mySubnetRouteTableAssociation:
+		Type: AWS::EC2::SubnetRouteTableAssociation
+		Properties:
+			SubnetId:
+				-!Ref PublicSubnet01
+				 !Ref PublicSubnet02
+			RouteTableId:!Ref MyPublicRoute
+			
+	My-App-SG:
+		Type: AWS::EC2::SecurityGroup
+		Properties:
+			GroupDescription:  This SG is to be used for application servers
+			VpcId:!Ref myVPC
+			SecurityGroupIngress:
+				- IpProtocol: tcp
+				  FromPort: 80
+				  ToPort: 80
+				  SourceSecurityGroupName: !Ref My-ALB-SG
+				- IpProtocol: tcp
+				  FromPort: 443
+				  ToPort: 443
+				  SourceSecurityGroupName: !Ref My-ALB-SG
+				- IpProtocol: tcp
+				  FromPort: 3389
+				  ToPort: 3389
+				  SourceSecurityGroupName: !Ref My-BastionHost-SG
+	 My-DB-SG:
+		Type: AWS::EC2::SecurityGroup
+		Properties:
+			GroupDescription:   This SG is to be used for database servers.
+			VpcId:!Ref myVPC
+			SecurityGroupIngress:
+				- IpProtocol: tcp
+				  FromPort: 3306
+				  ToPort: 3306
+				  SourceSecurityGroupName: !Ref My-App-SG
+				- IpProtocol: tcp
+				  FromPort: 3389
+				  ToPort: 3389
+				  SourceSecurityGroupName: !Ref My-BastionHost-SG
+	
+	 My-ALB-SG:
+		Type: AWS::EC2::SecurityGroup
+		Properties:
+			GroupDescription:  This SG is to be used for application load balancers
+			VpcId:!myVPC
+			SecurityGroupIngress:
+				- IpProtocol: tcp
+				  FromPort: 80
+				  ToPort: 80
+				  CidrIp: 0.0.0.0/0
+				- IpProtocol: tcp
+				  FromPort: 443
+				  ToPort: 443
+				  CidrIp: 0.0.0.0/0
+	
+	 My-BastionHost-SG:
+		Type: AWS::EC2::SecurityGroup
+		Properties:
+			GroupDescription:  This SG is to be used for bastions hosts
+			VpcId:!Ref myVPC
+			SecurityGroupIngress:
+				- IpProtocol: tcp
+				  FromPort: 3389
+				  ToPort: 3389
+				  CidrIp: 0.0.0.0/0
+				
